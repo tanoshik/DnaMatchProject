@@ -1,0 +1,16 @@
+# R関連ファイル
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# OSやエディタごとの不要ファイル
+.DS_Store
+Thumbs.db
+
+# RStudioプロジェクトファイル（手動で除外したい場合）
+*.Rproj
+
+# 出力・中間ファイル
+output/
+data/
