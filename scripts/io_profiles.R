@@ -24,23 +24,24 @@ read_query_profile <- function(file_path, locus_order, homo_to_any = FALSE) {
 read_db_profiles <- function(file_path, locus_order, homo_to_any = FALSE) {
   df <- read.csv(file_path, stringsAsFactors = FALSE)
   sample_ids <- unique(df$SampleID)
+  
   profiles <- lapply(sample_ids, function(sid) {
-    sub_df <- df[df$SampleID == sid & df$Locus %in% locus_order, ]
-    sub_df$Locus <- factor(sub_df$Locus, levels = locus_order)
-    sub_df <- sub_df[order(sub_df$Locus), ]
-
+    sub_df <- df[df$SampleID == sid, ]
+    
     raw_profile <- setNames(
-      lapply(split(sub_df[, c("allele1", "allele2")], sub_df$Locus), unlist),
-      as.character(unique(sub_df$Locus))
+      lapply(locus_order, function(locus) {
+        row <- sub_df[sub_df$Locus == locus, c("allele1", "allele2")]
+        if (nrow(row) == 0) return(c("any", "any"))  # 完全欠損補完
+        alleles <- unlist(row[1, ])
+        alleles[is.na(alleles) | alleles == ""] <- "any"
+        return(alleles)
+      }),
+      locus_order
     )
-
-    missing_loci <- setdiff(locus_order, names(raw_profile))
-    for (locus in missing_loci) {
-      raw_profile[[locus]] <- c(NA, NA)
-    }
-    raw_profile <- raw_profile[locus_order]
+    
     prepare_profile(raw_profile, homo_to_any)
   })
+  
   names(profiles) <- sample_ids
   profiles
 }

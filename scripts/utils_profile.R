@@ -38,33 +38,53 @@ prepare_query <- function(query_file = "data/query_profile.csv",
 
   return(query_profile)
 }
-# データベースの準備（補完・整形・ローカス順に揃える）
+# Convert raw dataframe to nested list by SampleID and Locus
+convert_db_to_list <- function(df, locus_order) {
+  df$Locus <- factor(df$Locus, levels = locus_order)
+  df <- df[order(df$SampleID, df$Locus), ]
+  split_profiles <- split(df, df$SampleID)
+  
+  profiles <- lapply(split_profiles, function(sample_df) {
+    profile <- setNames(
+      lapply(split(sample_df[, c("allele1", "allele2")], sample_df$Locus), unlist),
+      as.character(unique(sample_df$Locus))
+    )
+    
+    # Add missing loci as "any"
+    missing_loci <- setdiff(locus_order, names(profile))
+    for (locus in missing_loci) {
+      profile[[locus]] <- c("any", "any")
+    }
+    
+    profile[locus_order]
+  })
+  
+  return(profiles)
+}
+
+# Prepare database: read, log, fill, convert
 prepare_database <- function(db_file = "data/database_profile.csv",
                              locus_file = "data/locus_order.rds",
                              homo_to_any = FALSE) {
-  # ローカス順を読み込み
   if (!file.exists(locus_file)) {
-    stop(paste("ローカス順ファイルが存在しません:", locus_file))
+    stop(paste("Locus order file not found:", locus_file))
   }
+  if (!file.exists(db_file)) {
+    stop(paste("Database file not found:", db_file))
+  }
+  
   locus_order <- readRDS(locus_file)
-
-  # データベース読み込み
-  db_profiles <- read_db_profiles(db_file, locus_order, homo_to_any) # nolint: object_usage_linter, line_length_linter.
-
-  # ログ：ローカスの過不足チェック（SampleID 1件目を対象に確認）
   df_raw <- read.csv(db_file, stringsAsFactors = FALSE)
-  sample1 <- unique(df_raw$SampleID)[1]
-  df1 <- df_raw[df_raw$SampleID == sample1, ]
-  used_loci <- intersect(df1$Locus, locus_order)
-  unused_loci <- setdiff(df1$Locus, used_loci)
-  missing_loci <- setdiff(locus_order, used_loci)
-
-  if (length(unused_loci) > 0) {
-    cat("⚠️ 除外されたローカス（DB）:", paste(unused_loci, collapse = ", "), "\n")
-  }
-  if (length(missing_loci) > 0) {
-    cat("🔧 補完されたローカス（DB）:", paste(missing_loci, collapse = ", "), "\n")
-  }
-
-  return(db_profiles)
+  
+  # Remove unused loci
+  df_raw <- df_raw[df_raw$Locus %in% locus_order, ]
+  
+  db_profiles_raw <- convert_db_to_list(df_raw, locus_order)
+  
+  db_profiles <- lapply(db_profiles_raw, prepare_profile, homo_to_any = homo_to_any)
+  
+  return(list(
+    raw = db_profiles_raw,
+    prepared = db_profiles
+  ))
 }
