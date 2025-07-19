@@ -14,3 +14,4 @@ Thumbs.db
 # 出力・中間ファイル
 output/
 data/
+test/
