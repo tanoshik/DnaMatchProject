@@ -17,7 +17,9 @@ read_query_profile <- function(file_path, locus_order, homo_to_any = FALSE) {
     }
     profile[[locus]] <- alleles
   }
-  prepare_profile(profile, homo_to_any)
+  profile <- prepare_profile(profile, homo_to_any)
+  names(profile) <- locus_order
+  return(profile)
 }
 
 # db読み込み（補完付き）

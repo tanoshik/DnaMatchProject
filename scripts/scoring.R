@@ -19,7 +19,11 @@ score_locus <- function(query, record) {
 
 # プロファイル単位のスコア
 score_profile <- function(query_profile, record_profile) {
+  cat("Length of query_profile:", length(query_profile), "\n")
+  cat("Length of record_profile:", length(record_profile), "\n")
+  cat("Names of query_profile:\n"); print(names(query_profile))
+  cat("Names of record_profile:\n"); print(names(record_profile))
   scores <- mapply(score_locus, query_profile, record_profile)
-  total <- sum(scores)
-  list(scores = scores, total = total)
+  names(scores) <- names(query_profile)  # 明示的にローカス名を付与
+  c(scores, total = sum(scores))         # ← 1つのnamed numeric vectorとして返す
 }
