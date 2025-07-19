@@ -15,3 +15,8 @@ Thumbs.db
 output/
 data/
 test/
+
+# Ignore user-specific and session files
+.Rhistory
+.RData
+.Rproj.user/
