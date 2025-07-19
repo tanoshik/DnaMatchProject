@@ -3,8 +3,7 @@ read_query_profile <- function(file_path, locus_order, homo_to_any = FALSE) {
   df <- read.csv(file_path, stringsAsFactors = FALSE)
   df <- df[df$Locus %in% locus_order, ]
   df$Locus <- as.character(df$Locus)
-  df <- df[match(df$Locus, locus_order, nomatch = 0) > 0, ]
-
+  
   profile <- list()
   for (locus in locus_order) {
     row <- df[df$Locus == locus, ]
@@ -26,24 +25,54 @@ read_query_profile <- function(file_path, locus_order, homo_to_any = FALSE) {
 read_db_profiles <- function(file_path, locus_order, homo_to_any = FALSE) {
   df <- read.csv(file_path, stringsAsFactors = FALSE)
   sample_ids <- unique(df$SampleID)
-  
   profiles <- lapply(sample_ids, function(sid) {
-    sub_df <- df[df$SampleID == sid, ]
+    sub_df <- df[df$SampleID == sid & df$Locus %in% locus_order, ]
+    sub_df$Locus <- factor(sub_df$Locus, levels = locus_order)
+    sub_df <- sub_df[order(sub_df$Locus), ]
     
     raw_profile <- setNames(
-      lapply(locus_order, function(locus) {
-        row <- sub_df[sub_df$Locus == locus, c("allele1", "allele2")]
-        if (nrow(row) == 0) return(c("any", "any"))  # 完全欠損補完
-        alleles <- unlist(row[1, ])
-        alleles[is.na(alleles) | alleles == ""] <- "any"
-        return(alleles)
-      }),
-      locus_order
+      lapply(split(sub_df[, c("allele1", "allele2")], sub_df$Locus), unlist),
+      as.character(unique(sub_df$Locus))
     )
     
+    missing_loci <- setdiff(locus_order, names(raw_profile))
+    for (locus in missing_loci) {
+      raw_profile[[locus]] <- c(NA, NA)
+    }
+    raw_profile <- raw_profile[locus_order]
     prepare_profile(raw_profile, homo_to_any)
   })
-  
   names(profiles) <- sample_ids
   profiles
+}
+
+# DEBUG: query生データ vs prepared比較表示
+print_raw_vs_prepared_query <- function(file_path, prepared, locus_order) {
+  cat("=== Query Profile: Raw vs Prepared ===\n")
+  df <- read.csv(file_path, stringsAsFactors = FALSE)
+  for (locus in locus_order) {
+    row <- df[df$Locus == locus, ]
+    raw <- if (nrow(row) == 0) c("NA", "NA") else c(row$allele1, row$allele2)
+    prep <- prepared[[locus]]
+    cat(sprintf("%-11s | query_raw: %-10s -> prepared: %-10s\n",
+                locus,
+                paste(raw, collapse = ","),
+                paste(prep, collapse = ",")))
+  }
+}
+
+# DEBUG: db生データ vs prepared比較表示
+print_raw_vs_prepared_db <- function(file_path, prepared, locus_order) {
+  cat("\n=== DB Profile: Raw vs Prepared ===\n")
+  df <- read.csv(file_path, stringsAsFactors = FALSE)
+  df <- df[df$SampleID == unique(df$SampleID)[1], ]
+  for (locus in locus_order) {
+    row <- df[df$Locus == locus, ]
+    raw <- if (nrow(row) == 0) c("NA", "NA") else c(row$allele1, row$allele2)
+    prep <- prepared[[locus]]
+    cat(sprintf("%-11s | db_raw:    %-10s -> prepared: %-10s\n",
+                locus,
+                paste(raw, collapse = ","),
+                paste(prep, collapse = ",")))
+  }
 }
