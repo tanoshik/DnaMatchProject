@@ -1,99 +1,91 @@
-# scripts/gui/query_gui_app.R
-
 library(shiny)
-library(rprojroot)
 
-# Locate project root
-root <- rprojroot::find_root(rprojroot::has_file("DnaMatchProject.Rproj"))
+# freq_table.rds を読み込む（前提：data/ に存在）
+freq_table <- readRDS("data/freq_table.rds")
 
-# Load data
-locus_order <- readRDS(file.path(root, "data", "locus_order.rds"))
-allele_count <- readRDS(file.path(root, "data", "freq_table.rds"))
+get_allele_choices <- function(locus) {
+  alleles <- freq_table$Allele[freq_table$Locus == locus]
+  alleles <- alleles[!is.na(alleles) & grepl("^[0-9.]+$", alleles)]
+  numeric_alleles <- as.numeric(alleles)
+  sorted_alleles <- sort(unique(numeric_alleles))
+  choices <- c("any", as.character(sorted_alleles))
+  return(choices)
+}
 
-# Prepare allele choices per locus
-allele_choices <- lapply(locus_order, function(locus) {
-  alleles <- allele_count[[locus]]
-  sort(unique(c("any", names(alleles))))
-})
-names(allele_choices) <- locus_order
+# ローカス定義（Amelogenin除外）
+left_loci <- c("D3S1358", "TH01", "D21S11", "D18S51", "Penta_E", "D5S818", "D13S317", "D7S820", "D16S539", "CSF1PO")
+right_loci <- c("vWA", "D8S1179", "TPOX", "Penta_D", "D19S433", "FGA", "D2S1338", "D6S1043", "D12S391", "SE33")
 
-# Split loci left/right
-locus_left <- locus_order[1:11]
-locus_right <- locus_order[12:21]
+# 入力UI構成（labelとselectInputの縦位置を揃える）
+renderLocusInput <- function(locus) {
+  choices <- get_allele_choices(locus)
+  fluidRow(
+    column(2, tags$strong(locus)),
+    column(5, selectInput(paste0("input_", locus, "_1"), label = NULL, choices = choices, width = "100%")),
+    column(5, selectInput(paste0("input_", locus, "_2"), label = NULL, choices = choices, width = "100%"))
+  )
+}
 
+# UI定義
 ui <- fluidPage(
-  titlePanel("Query Profile Input (GlobalFiler, Japanese)"),
-  fluidRow(
-    column(6, lapply(locus_left, function(locus) {
-      fluidRow(
-        column(4, strong(locus)),
-        column(4, selectInput(paste0("a1_", locus), NULL, choices = allele_choices[[locus]], selected = "any")),
-        column(4, selectInput(paste0("a2_", locus), NULL, choices = allele_choices[[locus]], selected = "any"))
-      )
-    })),
-    column(6, lapply(locus_right, function(locus) {
-      fluidRow(
-        column(4, strong(locus)),
-        column(4, selectInput(paste0("a1_", locus), NULL, choices = allele_choices[[locus]], selected = "any")),
-        column(4, selectInput(paste0("a2_", locus), NULL, choices = allele_choices[[locus]], selected = "any"))
-      )
-    }))
-  ),
-  br(),
-  fluidRow(
-    column(4, fileInput("file_input", "Select Query Profile CSV", accept = ".csv")),
-    column(2, radioButtons("q_homo_to_any", "Homozygous to 'any'", choices = c("No" = FALSE, "Yes" = TRUE), inline = TRUE)),
-    column(2, actionButton("submit", "OK")),
-    column(2, actionButton("cancel", "Cancel"))
-  ),
-  hr(),
-  tableOutput("prepared")
+  titlePanel("Query Profile Input"),
+  tabsetPanel(id = "main_tabs",
+              tabPanel("Input",
+                       div(style = "max-height: 100vh; overflow-y: auto;",  # スクロールバー防止・高さ調整
+                           fluidRow(
+                             column(6,
+                                    h4("Left Loci"),
+                                    lapply(left_loci, renderLocusInput)
+                             ),
+                             column(6,
+                                    h4("Right Loci"),
+                                    lapply(right_loci, renderLocusInput)
+                             )
+                           ),
+                           hr(),
+                           fileInput("query_file", "Select Query Profile CSV"),
+                           actionButton("goto_confirm", "Go to Confirm")
+                       )
+              ),
+              tabPanel("Confirm",
+                       h3("Prepared Query Profile"),
+                       tableOutput("confirm_table")
+              )
+  )
 )
 
+# サーバー定義
 server <- function(input, output, session) {
-  query_data <- reactiveVal(NULL)
   
-  observeEvent(input$file_input, {
-    req(input$file_input)
-    df <- read.csv(input$file_input$datapath, stringsAsFactors = FALSE)
-    query_data(df)
-  })
-  
-  observeEvent(input$cancel, {
-    query_data(NULL)
-    shinyjs::reset("file_input")
-  })
-  
-  observeEvent(input$submit, {
-    if (is.null(query_data())) {
-      df <- data.frame(
-        Locus = locus_order,
-        allele1 = sapply(locus_order, function(l) input[[paste0("a1_", l)]]),
-        allele2 = sapply(locus_order, function(l) input[[paste0("a2_", l)]]),
-        stringsAsFactors = FALSE
-      )
-      query_data(df)
+  # CSV選択後の読み込み＆UI更新＆Confirm遷移
+  observeEvent(input$query_file, {
+    req(input$query_file)
+    query_df <- read.csv(input$query_file$datapath, stringsAsFactors = FALSE)
+    
+    for (locus in c(left_loci, right_loci)) {
+      a1 <- query_df[query_df$Locus == locus, "Allele1"]
+      a2 <- query_df[query_df$Locus == locus, "Allele2"]
+      updateSelectInput(session, paste0("input_", locus, "_1"), selected = a1)
+      updateSelectInput(session, paste0("input_", locus, "_2"), selected = a2)
     }
     
-    df <- query_data()
-    prep <- lapply(locus_order, function(locus) {
-      row <- df[df$Locus == locus, ]
-      a1 <- ifelse(nrow(row) == 0 || is.na(row$allele1) || row$allele1 == "", "any", row$allele1)
-      a2 <- ifelse(nrow(row) == 0 || is.na(row$allele2) || row$allele2 == "", "any", row$allele2)
-      if (isTRUE(as.logical(input$q_homo_to_any)) && a1 == a2 && a1 != "any") a2 <- "any"
-      c(a1, a2)
-    })
-    names(prep) <- locus_order
-    
-    output$prepared <- renderTable({
-      data.frame(
-        Locus = locus_order,
-        allele1 = sapply(prep, `[[`, 1),
-        allele2 = sapply(prep, `[[`, 2),
-        stringsAsFactors = FALSE
-      )
-    })
+    updateTabsetPanel(session, "main_tabs", selected = "Confirm")
   })
+  
+  # Go to Confirmボタン（手動遷移）
+  observeEvent(input$goto_confirm, {
+    updateTabsetPanel(session, "main_tabs", selected = "Confirm")
+  })
+  
+  # 確認用表示（Confirmタブ）
+  output$confirm_table <- renderTable({
+    data.frame(
+      Locus = c(left_loci, right_loci),
+      Allele1 = sapply(c(left_loci, right_loci), function(locus) input[[paste0("input_", locus, "_1")]]),
+      Allele2 = sapply(c(left_loci, right_loci), function(locus) input[[paste0("input_", locus, "_2")]])
+    )
+  })
+  
 }
 
 shinyApp(ui, server)
