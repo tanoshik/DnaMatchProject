@@ -1,42 +1,53 @@
-# 必要パッケージの読み込み
-library(tidyverse)
+# scripts/generate_rds_from_allele_count.R
+# 使用目的: Allele-count_GF_Japanese.csv から locus_order.rds, freq_table.rds を生成
+# ※ このファイルは source() するだけでは何も起こらない（関数定義のみ）
 
-# ファイル選択
-file_path <- file.choose()
-allele_raw <- read.csv(file_path, stringsAsFactors = FALSE, check.names = FALSE)
-
-# 欠損を0に置き換え
-allele_raw[is.na(allele_raw)] <- 0
-
-# "Allele" 列を文字列として保持
-allele_raw$Allele <- as.character(allele_raw$Allele)
-
-# Locusの順序を保存（ファイルの左から右の順）
-locus_order <- colnames(allele_raw)[-1]  # "Allele"以外
-
-# ワイド形式 → ロング形式へ変換
-allele_long <- allele_raw %>%
-  pivot_longer(
-    cols = -Allele,
-    names_to = "Locus",
-    values_to = "Count"
-  ) %>%
-  mutate(
-    Count = as.numeric(Count)
-  ) %>%
-  filter(Count > 0)  # 空白だったもの（0件）は削除
-
-# 出現頻度（割合）の計算
-freq_table <- allele_long %>%
-  group_by(Locus) %>%
-  mutate(Freq = Count / sum(Count)) %>%
-  ungroup()
-
-# 保存先（同じフォルダに保存）
-save_dir <- dirname(file_path)
-saveRDS(locus_order, file = file.path(save_dir, "data/locus_order.rds"))
-saveRDS(freq_table, file = file.path(save_dir, "data/freq_table.rds"))
-
-cat("✅ RDSファイルを保存しました。\n")
-cat(" -", file.path(save_dir, "data/locus_order.rds"), "\n")
-cat(" -", file.path(save_dir, "data/freq_table.rds"), "\n")
+generate_rds_interactive <- function() {
+  suppressPackageStartupMessages({
+    library(tidyverse)
+    library(tcltk)
+  })
+  
+  # ファイル選択（ユーザーへの説明あり）
+  file_path <- tcltk::tk_choose.files(
+    caption = "Select allele count CSV file (e.g., Allele-count_GF_Japanese.csv)",
+    multi = FALSE
+  )
+  
+  if (length(file_path) == 0 || file_path == "") {
+    stop("No file selected. Please select a valid allele count CSV file.")
+  }
+  
+  # CSV読み込み
+  allele_raw <- read.csv(file_path, stringsAsFactors = FALSE, check.names = FALSE)
+  allele_raw[is.na(allele_raw)] <- 0
+  allele_raw$Allele <- as.character(allele_raw$Allele)
+  
+  # Locus順序
+  locus_order <- colnames(allele_raw)[-1]
+  
+  # ワイド形式 → ロング形式変換
+  allele_long <- allele_raw %>%
+    pivot_longer(cols = -Allele, names_to = "Locus", values_to = "Count") %>%
+    mutate(Count = as.numeric(Count)) %>%
+    filter(Count > 0)
+  
+  # 頻度計算
+  freq_table <- allele_long %>%
+    group_by(Locus) %>%
+    mutate(Freq = Count / sum(Count)) %>%
+    ungroup()
+  
+  # 保存パス
+  save_dir <- "data"
+  dir.create(save_dir, showWarnings = FALSE)
+  
+  # RDS保存
+  saveRDS(locus_order, file = file.path(save_dir, "locus_order.rds"))
+  saveRDS(freq_table, file = file.path(save_dir, "freq_table.rds"))
+  
+  # 確認出力（ASCIIのみ）
+  cat("RDS files successfully saved:\n")
+  cat(" -", file.path(save_dir, "locus_order.rds"), "\n")
+  cat(" -", file.path(save_dir, "freq_table.rds"), "\n")
+}

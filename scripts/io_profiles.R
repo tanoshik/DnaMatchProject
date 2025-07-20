@@ -47,32 +47,32 @@ read_db_profiles <- function(file_path, locus_order, homo_to_any = FALSE) {
 }
 
 # DEBUG: query生データ vs prepared比較表示
-print_raw_vs_prepared_query <- function(file_path, prepared, locus_order) {
-  cat("=== Query Profile: Raw vs Prepared ===\n")
-  df <- read.csv(file_path, stringsAsFactors = FALSE)
-  for (locus in locus_order) {
-    row <- df[df$Locus == locus, ]
-    raw <- if (nrow(row) == 0) c("NA", "NA") else c(row$allele1, row$allele2)
-    prep <- prepared[[locus]]
-    cat(sprintf("%-11s | query_raw: %-10s -> prepared: %-10s\n",
-                locus,
-                paste(raw, collapse = ","),
-                paste(prep, collapse = ",")))
-  }
-}
+# print_raw_vs_prepared_query <- function(file_path, prepared, locus_order) {
+#   cat("=== Query Profile: Raw vs Prepared ===\n")
+#   df <- read.csv(file_path, stringsAsFactors = FALSE)
+#   for (locus in locus_order) {
+#     row <- df[df$Locus == locus, ]
+#     raw <- if (nrow(row) == 0) c("NA", "NA") else c(row$allele1, row$allele2)
+#     prep <- prepared[[locus]]
+#     cat(sprintf("%-11s | query_raw: %-10s -> prepared: %-10s\n",
+#                 locus,
+#                 paste(raw, collapse = ","),
+#                 paste(prep, collapse = ",")))
+#   }
+# }
 
 # DEBUG: db生データ vs prepared比較表示
-print_raw_vs_prepared_db <- function(file_path, prepared, locus_order) {
-  cat("\n=== DB Profile: Raw vs Prepared ===\n")
-  df <- read.csv(file_path, stringsAsFactors = FALSE)
-  df <- df[df$SampleID == unique(df$SampleID)[1], ]
-  for (locus in locus_order) {
-    row <- df[df$Locus == locus, ]
-    raw <- if (nrow(row) == 0) c("NA", "NA") else c(row$allele1, row$allele2)
-    prep <- prepared[[locus]]
-    cat(sprintf("%-11s | db_raw:    %-10s -> prepared: %-10s\n",
-                locus,
-                paste(raw, collapse = ","),
-                paste(prep, collapse = ",")))
-  }
-}
+# print_raw_vs_prepared_db <- function(file_path, prepared, locus_order) {
+#   cat("\n=== DB Profile: Raw vs Prepared ===\n")
+#   df <- read.csv(file_path, stringsAsFactors = FALSE)
+#   df <- df[df$SampleID == unique(df$SampleID)[1], ]
+#   for (locus in locus_order) {
+#     row <- df[df$Locus == locus, ]
+#     raw <- if (nrow(row) == 0) c("NA", "NA") else c(row$allele1, row$allele2)
+#     prep <- prepared[[locus]]
+#     cat(sprintf("%-11s | db_raw:    %-10s -> prepared: %-10s\n",
+#                 locus,
+#                 paste(raw, collapse = ","),
+#                 paste(prep, collapse = ",")))
+#   }
+# }
