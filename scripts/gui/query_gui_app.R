@@ -42,7 +42,8 @@ ui <- fluidPage(
                                     lapply(left_loci, renderLocusInput)
                              ),
                              column(6, style = "margin-top: 20px;",
-                                    lapply(right_loci, renderLocusInput)
+                                    lapply(right_loci, renderLocusInput),
+                                    textInput("sample_name", "Sample Name", value = "QuerySample1"),
                              )
                            ),
                            hr(),
@@ -51,31 +52,37 @@ ui <- fluidPage(
                                     fileInput("query_file", "Select Query Profile CSV")
                              ),
                              column(6,
-                                    # チェックボックスとボタンを右側に縦配置
-                                    checkboxInput("homo_to_any", "Convert homozygous alleles to 'any'", value = TRUE),
+                                    checkboxInput("homo_to_any", "Convert homozygous alleles to 'any'", value = FALSE),
                                     actionButton("goto_confirm", "Go to Confirm")
                              )
-                           )
+                           ),
                        )
               ),
               tabPanel("Confirm",
-                       h3("Prepared Query Profile"),
+                       h3("Prepared Query Profile", style = "display: inline-block; margin-right: 20px;"),
+                       actionButton("run_match", "Run Match", style = "display: inline-block; vertical-align: middle; margin-top: -5px;"),
                        tableOutput("confirm_table")
+              ),
+              tabPanel("Result",
+                       h3("Match Results"),
+                       tableOutput("result_table")
               )
   )
 )
 
-
 # サーバー定義
 server <- function(input, output, session) {
-  
   source("scripts/utils_profile.R")
+  source("scripts/io_profiles.R")
+  source("scripts/scoring.R")
+  source("scripts/matcher.R")
   
-  # CSV選択後の読み込み＆UI更新＆Confirm遷移
+  query_profile_reactive <- reactiveVal(NULL)
+  match_result_reactive <- reactiveVal(NULL)
+  
   observeEvent(input$query_file, {
     req(input$query_file)
-
-    # Confirm側初期化：全ローカスをany, anyにして前の値を消去
+    
     for (locus in visible_loci) {
       updateSelectInput(session, paste0("input_", locus, "_1"), selected = "any")
       updateSelectInput(session, paste0("input_", locus, "_2"), selected = "any")
@@ -94,19 +101,17 @@ server <- function(input, output, session) {
       return()
     }
     
-    # 最初のSampleID行だけ使う（あれば）
     if ("sampleid" %in% names(df)) {
+      updateTextInput(session, "sample_name", value = df$sampleid[1])
       df <- df[df$sampleid == df$sampleid[1], ]
     }
     
     df <- df[, c("locus", "allele1", "allele2")]
     colnames(df) <- c("Locus", "Allele1", "Allele2")
     
-    # 補完：空白 or NA → "any"
     df$Allele1[is.na(df$Allele1) | df$Allele1 == ""] <- "any"
     df$Allele2[is.na(df$Allele2) | df$Allele2 == ""] <- "any"
     
-    # 不要ローカス削除・不足ローカス補完
     df <- df[df$Locus %in% visible_loci, ]
     missing_loci <- setdiff(visible_loci, df$Locus)
     if (length(missing_loci) > 0) {
@@ -120,7 +125,6 @@ server <- function(input, output, session) {
     df$Locus <- factor(df$Locus, levels = visible_loci)
     df <- df[order(df$Locus), ]
     
-    # Input欄に反映
     for (locus in df$Locus) {
       a1 <- df[df$Locus == locus, "Allele1"]
       a2 <- df[df$Locus == locus, "Allele2"]
@@ -138,15 +142,39 @@ server <- function(input, output, session) {
       updateSelectInput(session, paste0("input_", locus, "_1"), selected = a1)
       updateSelectInput(session, paste0("input_", locus, "_2"), selected = a2)
     }
-    # Confirmへは遷移しない
   })
   
-  # Go to Confirmボタン（手動遷移）
   observeEvent(input$goto_confirm, {
     updateTabsetPanel(session, "main_tabs", selected = "Confirm")
   })
   
-  # 確認用表示（Confirmタブ）
+  observeEvent(input$run_match, {
+    query_df <- data.frame(
+      Locus = visible_loci,
+      Allele1 = sapply(visible_loci, function(locus) {
+        val <- input[[paste0("input_", locus, "_1")]]
+        if (is.null(val) || val == "") "any" else val
+      }),
+      Allele2 = sapply(visible_loci, function(locus) {
+        val <- input[[paste0("input_", locus, "_2")]]
+        if (is.null(val) || val == "") "any" else val
+      }),
+      stringsAsFactors = FALSE
+    )
+    
+    profile_df <- prepare_profile_df(query_df, homo_to_any = input$homo_to_any)
+    profile <- split(profile_df[, c("Allele1", "Allele2")], profile_df$Locus)
+    query_profile_reactive(profile)
+    
+    db <- read_db_profiles("data/database_profile.csv", locus_order, homo_to_any = FALSE)
+    
+    result <- run_match(profile, db, top_n = 10)
+    result$score_df$Score <- as.integer(result$score_df$Score)  # 整数スコアに変換
+    match_result_reactive(result$score_df)
+    
+    updateTabsetPanel(session, "main_tabs", selected = "Result")
+  })
+  
   output$confirm_table <- renderTable({
     data.frame(
       Locus = visible_loci,
@@ -159,6 +187,12 @@ server <- function(input, output, session) {
         if (is.null(val) || val == "") "any" else val
       })
     ) |> prepare_profile_df(homo_to_any = input$homo_to_any)
+  })
+  
+  output$result_table <- renderTable({
+    result <- match_result_reactive()
+    if (is.null(result)) return(NULL)
+    result
   })
 }
 
