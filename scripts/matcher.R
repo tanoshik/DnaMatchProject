@@ -23,8 +23,8 @@ run_match <- function(query_profile, db_profiles, top_n = 10) {
     
     loci <- locus_order  # 明示的に順序固定
     
-    q1 <- sapply(loci, function(locus) as.character(query_profile[[locus]][1, 1]))
-    q2 <- sapply(loci, function(locus) as.character(query_profile[[locus]][1, 2]))
+    q1 <- sapply(loci, function(locus) as.character(query_profile[[locus]][1]))
+    q2 <- sapply(loci, function(locus) as.character(query_profile[[locus]][2]))
     r1 <- sapply(loci, function(locus) rec[[locus]][1])
     r2 <- sapply(loci, function(locus) rec[[locus]][2])
     ss <- scores$scores[loci]  # ローカス順に再並び替え

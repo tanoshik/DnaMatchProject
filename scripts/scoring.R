@@ -19,14 +19,6 @@ score_locus <- function(query, record) {
 
 # プロファイル単位のスコア＋詳細ログ
 score_profile <- function(query_profile, record_profile) {
-  # DEBUG: 構造確認
-  cat(">> DEBUG: score_profile() called\n")
-  cat(" - query_profile type: ", typeof(query_profile), "\n")
-  cat(" - record_profile type: ", typeof(record_profile), "\n")
-  cat(" - Names of query_profile:\n"); print(names(query_profile))
-  cat(" - First query locus:\n"); print(query_profile[[1]])
-  cat(" - First record locus:\n"); print(record_profile[[1]])
-  
   loci <- names(query_profile)
   total <- 0
   per_locus_scores <- numeric(length(loci))
