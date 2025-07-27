@@ -43,7 +43,7 @@ ui <- fluidPage(
                              ),
                              column(6, style = "margin-top: 20px;",
                                     lapply(right_loci, renderLocusInput),
-                                    textInput("sample_name", "Sample Name", value = "QuerySample1"),
+                                    textInput("sample_name", "Sample Name", value = "QuerySample1")
                              )
                            ),
                            hr(),
@@ -55,13 +55,27 @@ ui <- fluidPage(
                                     checkboxInput("homo_to_any", "Convert homozygous alleles to 'any'", value = FALSE),
                                     actionButton("goto_confirm", "Go to Confirm")
                              )
-                           ),
+                           )
                        )
               ),
               tabPanel("Confirm",
-                       h3("Prepared Query Profile", style = "display: inline-block; margin-right: 20px;"),
-                       actionButton("run_match", "Run Match", style = "display: inline-block; vertical-align: middle; margin-top: -5px;"),
-                       tableOutput("confirm_table")
+                       fluidRow(
+                         column(8,
+                                h3("Prepared Query Profile"),
+                                tableOutput("confirm_table")
+                         ),
+                         column(4,
+                                div(style = "display: flex; flex-direction: column; align-items: flex-start; margin-right: 100px; margin-top: 40px;",
+                                    div(
+                                      actionButton("run_match", "Run Match")
+                                    ),
+                                    div(style = "margin-Top: 20px;",
+                                          textOutput("total_freq")
+                                    )
+                                    
+                                )
+                         )
+                       )
               ),
               tabPanel("Result",
                        h3("Match Results"),
@@ -76,9 +90,12 @@ server <- function(input, output, session) {
   source("scripts/io_profiles.R")
   source("scripts/scoring.R")
   source("scripts/matcher.R")
+  source("scripts/utils_freq.R")
   
   query_profile_reactive <- reactiveVal(NULL)
   match_result_reactive <- reactiveVal(NULL)
+  freq_table_df_reactive <- reactiveVal(NULL)
+  total_freq_reactive <- reactiveVal(NULL)
   
   observeEvent(input$query_file, {
     req(input$query_file)
@@ -146,9 +163,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$goto_confirm, {
     updateTabsetPanel(session, "main_tabs", selected = "Confirm")
-  })
-  
-  observeEvent(input$run_match, {
+    
     query_df <- data.frame(
       Locus = visible_loci,
       Allele1 = sapply(visible_loci, function(locus) {
@@ -162,37 +177,46 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     )
     
-    profile_df <- prepare_profile_df(query_df, homo_to_any = input$homo_to_any)
+    prepared <- prepare_profile_df(query_df, homo_to_any = input$homo_to_any)
+    query_profile_reactive(prepared)
+    
+    freq_df <- calc_freq_loci_df(prepared, freq_table)
+    total_freq <- calc_total_freq(prepared, freq_table)
+    freq_table_df_reactive(freq_df)
+    total_freq_reactive(total_freq)
+  })
+  
+  observeEvent(input$run_match, {
+    profile_df <- query_profile_reactive()
     profile <- split(profile_df[, c("Allele1", "Allele2")], profile_df$Locus)
-    query_profile_reactive(profile)
     
     db <- read_db_profiles("data/database_profile.csv", locus_order, homo_to_any = FALSE)
-    
     result <- run_match(profile, db, top_n = 10)
-    result$score_df$Score <- as.integer(result$score_df$Score)  # 整数スコアに変換
+    result$score_df$Score <- as.integer(result$score_df$Score)
     match_result_reactive(result$score_df)
     
     updateTabsetPanel(session, "main_tabs", selected = "Result")
   })
   
   output$confirm_table <- renderTable({
-    data.frame(
-      Locus = visible_loci,
-      Allele1 = sapply(visible_loci, function(locus) {
-        val <- input[[paste0("input_", locus, "_1")]]
-        if (is.null(val) || val == "") "any" else val
-      }),
-      Allele2 = sapply(visible_loci, function(locus) {
-        val <- input[[paste0("input_", locus, "_2")]]
-        if (is.null(val) || val == "") "any" else val
-      })
-    ) |> prepare_profile_df(homo_to_any = input$homo_to_any)
+    df <- query_profile_reactive()
+    if (is.null(df)) return(NULL)
+    
+    freq_df <- freq_table_df_reactive()
+    df$Freq <- sprintf("%.6f", freq_df$Freq)
+    df
   })
   
   output$result_table <- renderTable({
     result <- match_result_reactive()
     if (is.null(result)) return(NULL)
     result
+  })
+  
+  output$total_freq <- renderText({
+    total <- total_freq_reactive()
+    if (is.null(total)) return("")
+    paste("Total Frequency:", format(total, scientific = TRUE, digits = 2))
   })
 }
 
