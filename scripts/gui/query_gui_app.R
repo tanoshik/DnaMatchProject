@@ -69,6 +69,19 @@ ui <- fluidPage(
                                     div(
                                       actionButton("run_match", "Run Match")
                                     ),
+                                    div(style = "margin-top: 30px;",
+                                        radioButtons("filter_type", "Display Limit",
+                                                     choices = c("Top N" = "top_n", "Score ≥ n" = "score_min", "All" = "all"),
+                                                     selected = "top_n"),
+                                        conditionalPanel(
+                                          condition = "input.filter_type == 'top_n'",
+                                          numericInput("top_n", "Top N", value = 10, min = 1)
+                                        ),
+                                        conditionalPanel(
+                                          condition = "input.filter_type == 'score_min'",
+                                          numericInput("min_score", "Minimum Score", value = 10, min = 1)
+                                        )
+                                    ),
                                     div(style = "margin-Top: 20px;",
                                           textOutput("total_freq")
                                     )
@@ -79,6 +92,7 @@ ui <- fluidPage(
               ),
               tabPanel("Result",
                        h3("Match Results"),
+                       downloadButton("download_result", "Download CSV"),
                        tableOutput("result_table")
               )
   )
@@ -191,10 +205,26 @@ server <- function(input, output, session) {
     profile <- split(profile_df[, c("Allele1", "Allele2")], profile_df$Locus)
     
     db <- read_db_profiles("data/database_profile.csv", locus_order, homo_to_any = FALSE)
-    result <- run_match(profile, db, top_n = 10)
-    result$score_df$Score <- as.integer(result$score_df$Score)
-    match_result_reactive(result$score_df)
+    result <- run_match(profile, db)
     
+    score_df <- result$score_df
+    score_df$Score <- as.integer(score_df$Score)
+    
+    filtered_df <- switch(input$filter_type,
+                          "top_n" = {
+                            n <- input$top_n
+                            head(score_df[order(-score_df$Score), ], n)
+                          },
+                          "score_min" = {
+                            min_score <- input$min_score
+                            score_df[score_df$Score >= min_score, ]
+                          },
+                          "all" = {
+                            score_df
+                          }
+    )
+    
+    match_result_reactive(filtered_df)
     updateTabsetPanel(session, "main_tabs", selected = "Result")
   })
   
@@ -210,7 +240,7 @@ server <- function(input, output, session) {
   output$result_table <- renderTable({
     result <- match_result_reactive()
     if (is.null(result)) return(NULL)
-    result
+    result[order(-result$Score), ]
   })
   
   output$total_freq <- renderText({
@@ -218,6 +248,17 @@ server <- function(input, output, session) {
     if (is.null(total)) return("")
     paste("Total Frequency:", format(total, scientific = TRUE, digits = 2))
   })
+  output$download_result <- downloadHandler(
+    filename = function() {
+      timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+      paste0("match_results_", timestamp, ".csv")
+    },
+    content = function(file) {
+      result <- match_result_reactive()
+      if (is.null(result)) return(NULL)
+      write.csv(result, file, row.names = FALSE)
+    }
+  )
 }
 
 app <- shinyApp(ui = ui, server = server)
