@@ -106,3 +106,25 @@ prepare_database <- function(db_file = "data/database_profile.csv",
   
   return(list(raw = db_profiles_raw, prepared = db_profiles))
 }
+
+# アレルペア整形関数：昇順＋"any"右詰め（空欄・NAも any として処理）
+std_allele_pair <- function(alleles) {
+  alleles <- as.character(alleles)
+  if (length(alleles) != 2) return(c("any", "any"))
+  
+  # 空欄・NA は any に変換
+  alleles[is.na(alleles) | alleles == ""] <- "any"
+  
+  # any 以外の部分だけ昇順ソート（数値変換できる場合）
+  non_any <- alleles[alleles != "any"]
+  sorted <- suppressWarnings({
+    if (length(non_any) == 2 && all(grepl("^[0-9]+(\\.[0-9]+)?$", non_any))) {
+      as.character(sort(as.numeric(non_any)))
+    } else {
+      non_any
+    }
+  })
+  
+  result <- c(sorted, rep("any", 2 - length(sorted)))
+  return(result)
+}
