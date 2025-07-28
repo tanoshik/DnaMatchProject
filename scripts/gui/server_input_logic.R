@@ -15,7 +15,7 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     if (!all(required_cols %in% names(df))) {
       showModal(modalDialog(
         title = "Invalid CSV format",
-        "CSV file must contain columns: Locus, allele1, allele2",
+        "CSV file must contain columns: Locus, Allele1, Allele2",
         easyClose = TRUE
       ))
       return()
@@ -27,18 +27,18 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     }
     
     df <- df[, c("locus", "allele1", "allele2")]
-    colnames(df) <- c("Locus", "allele1", "allele2")
+    colnames(df) <- c("Locus", "Allele1", "Allele2")
     
-    df$allele1[is.na(df$allele1) | df$allele1 == ""] <- "any"
-    df$allele2[is.na(df$allele2) | df$allele2 == ""] <- "any"
+    df$Allele1[is.na(df$Allele1) | df$Allele1 == ""] <- "any"
+    df$Allele2[is.na(df$Allele2) | df$Allele2 == ""] <- "any"
     
     df <- df[df$Locus %in% visible_loci, ]
     missing_loci <- setdiff(visible_loci, df$Locus)
     if (length(missing_loci) > 0) {
       df <- rbind(df, data.frame(
         Locus = missing_loci,
-        allele1 = "any",
-        allele2 = "any"
+        Allele1 = "any",
+        Allele2 = "any"
       ))
     }
     
@@ -46,8 +46,8 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     df <- df[order(df$Locus), ]
     
     for (locus in df$Locus) {
-      a1 <- df[df$Locus == locus, "allele1"]
-      a2 <- df[df$Locus == locus, "allele2"]
+      a1 <- df[df$Locus == locus, "Allele1"]
+      a2 <- df[df$Locus == locus, "Allele2"]
       valid_choices <- get_allele_choices(locus)
       
       if (!(a1 %in% valid_choices)) {
@@ -69,23 +69,18 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     
     query_df <- data.frame(
       Locus = visible_loci,
-      allele1 = sapply(visible_loci, function(locus) {
+      Allele1 = sapply(visible_loci, function(locus) {
         val <- input[[paste0("input_", locus, "_1")]]
         if (is.null(val) || val == "") "any" else val
       }),
-      allele2 = sapply(visible_loci, function(locus) {
+      Allele2 = sapply(visible_loci, function(locus) {
         val <- input[[paste0("input_", locus, "_2")]]
         if (is.null(val) || val == "") "any" else val
       }),
       stringsAsFactors = FALSE
     )
     
-    prepared <- prepare_profile_df(
-      query_df,
-      freq_table = freq_table,
-      homo_to_any = input$homo_to_any
-    )
-    print(prepared)
+    prepared <- prepare_profile_df(query_df, homo_to_any = input$homo_to_any)
     query_profile_reactive(prepared)
     
     freq_df <- calc_freq_loci_df(prepared, freq_table)

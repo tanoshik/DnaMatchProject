@@ -9,7 +9,6 @@ source("scripts/gui/ui_confirm_tab.R")
 source("scripts/gui/ui_result_tab.R")
 source("scripts/gui/server_input_logic.R")
 source("scripts/gui/server_match_logic.R")
-library(shiny)
 
 freq_table <- readRDS("data/freq_table.rds")
 locus_order <- readRDS("data/locus_order.rds")
@@ -28,7 +27,7 @@ total_freq_reactive <- reactiveVal(NULL)
 ui <- fluidPage(
   titlePanel("Query Profile Input"),
   tabsetPanel(id = "main_tabs",
-              render_input_tab(left_loci, right_loci, freq_table),
+              render_input_tab(left_loci, right_loci),
               render_confirm_tab(visible_loci),
               render_result_tab()
   )

@@ -39,8 +39,8 @@ calc_freq_loci_df <- function(profile_df, freq_table) {
       calc_freq_loci(locus, a1, a2, freq_table)
     },
     profile_df$Locus,
-    profile_df$allele1,
-    profile_df$allele2
+    profile_df$Allele1,
+    profile_df$Allele2
   )
   return(profile_df)
 }
@@ -48,8 +48,8 @@ calc_freq_loci_df <- function(profile_df, freq_table) {
 # プロファイル全体の出現頻度（ローカスごとの積）
 calc_total_freq <- function(profile_df, freq_table) {
   loci <- profile_df$Locus
-  allele1 <- profile_df$allele1
-  allele2 <- profile_df$allele2
+  allele1 <- profile_df$Allele1
+  allele2 <- profile_df$Allele2
   
   total <- 1
   
