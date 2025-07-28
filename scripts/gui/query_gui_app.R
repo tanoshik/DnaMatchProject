@@ -1,3 +1,8 @@
+if (!requireNamespace("shiny", quietly = TRUE)) {
+  stop("Please install the 'shiny' package to run this app.")
+}
+library(shiny)
+
 source("scripts/utils_profile.R")
 source("scripts/io_profiles.R")
 source("scripts/scoring.R")
