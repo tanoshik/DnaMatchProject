@@ -64,4 +64,36 @@ register_match_logic <- function(input, output, session, db, visible_loci,
       write.csv(result, file, row.names = FALSE)
     }
   )
+  
+  output$download_detail <- downloadHandler(
+    filename = function() {
+      paste0("match_detail_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+    },
+    content = function(file) {
+      result <- match_result_reactive()
+      if (is.null(result)) return(NULL)
+      
+      profile_df <- query_profile_reactive()
+      if (is.null(profile_df)) return(NULL)
+      
+      query_profile <- split(profile_df[, c("Allele1", "Allele2")], profile_df$Locus)
+      
+      selected_ids <- result$SampleID
+      log_list <- lapply(selected_ids, function(sid) {
+        db_profile <- db[[sid]]
+        mlog <- score_profile(query_profile, db_profile)$log
+        mlog_trimmed <- data.frame(
+          SampleID = sid,
+          Locus = mlog$Locus,
+          DB_Allele1 = mlog$record_allele1,
+          DB_Allele2 = mlog$record_allele2,
+          stringsAsFactors = FALSE
+        )
+        return(mlog_trimmed)
+      })
+      
+      log_df <- do.call(rbind, log_list)
+      write.csv(log_df, file, row.names = FALSE, quote = FALSE)
+    }
+  )
 }
