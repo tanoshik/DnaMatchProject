@@ -27,7 +27,7 @@ total_freq_reactive <- reactiveVal(NULL)
 ui <- fluidPage(
   titlePanel("Query Profile Input"),
   tabsetPanel(id = "main_tabs",
-              render_input_tab(left_loci, right_loci),
+              render_input_tab(left_loci, right_loci, freq_table),  # freq_table 渡す！
               render_confirm_tab(visible_loci),
               render_result_tab()
   )

@@ -48,7 +48,7 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     for (locus in df$Locus) {
       a1 <- df[df$Locus == locus, "Allele1"]
       a2 <- df[df$Locus == locus, "Allele2"]
-      valid_choices <- get_allele_choices(locus)
+      valid_choices <- get_allele_choices(locus, freq_table)
       
       if (!(a1 %in% valid_choices)) {
         showNotification(paste("Allele", a1, "is not valid for", locus, "- set to blank."))
