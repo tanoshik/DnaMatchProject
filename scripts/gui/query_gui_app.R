@@ -48,9 +48,7 @@ ui <- fluidPage(
                            ),
                            hr(),
                            fluidRow(
-                             column(6,
-                                    fileInput("query_file", "Select Query Profile CSV")
-                             ),
+                             column(6, fileInput("query_file", "Select Query Profile CSV")),
                              column(6,
                                     checkboxInput("homo_to_any", "Convert homozygous alleles to 'any'", value = FALSE),
                                     actionButton("goto_confirm", "Go to Confirm")
@@ -65,27 +63,26 @@ ui <- fluidPage(
                                 tableOutput("confirm_table")
                          ),
                          column(4,
-                                div(style = "display: flex; flex-direction: column; align-items: flex-start; margin-right: 100px; margin-top: 40px;",
-                                    div(
-                                      actionButton("run_match", "Run Match")
-                                    ),
+                                div(style = "display: flex; flex-direction: column; align-items: flex-start; margin-left: 40px; min-width: 200px; max-width: 260px; margin-top: 40px;",
+                                    div(actionButton("run_match", "Run Match")),
                                     div(style = "margin-top: 30px;",
                                         radioButtons("filter_type", "Display Limit",
                                                      choices = c("Top N" = "top_n", "Score ≥ n" = "score_min", "All" = "all"),
-                                                     selected = "top_n"),
+                                                     selected = "top_n"
+                                        ),
                                         conditionalPanel(
                                           condition = "input.filter_type == 'top_n'",
-                                          numericInput("top_n", "Top N", value = 10, min = 1)
+                                          numericInput("top_n", "Top N", value = 10, min = 1, width = "150px")
                                         ),
                                         conditionalPanel(
                                           condition = "input.filter_type == 'score_min'",
-                                          numericInput("min_score", "Minimum Score", value = 10, min = 1)
+                                          numericInput("min_score", "Minimum Score", value = length(visible_loci) * 2, min = 1, width = "150px")
                                         )
                                     ),
                                     div(style = "margin-Top: 20px;",
-                                          textOutput("total_freq")
+                                        textOutput("total_freq"),
+                                        textOutput("db_count")
                                     )
-                                    
                                 )
                          )
                        )
@@ -105,6 +102,14 @@ server <- function(input, output, session) {
   source("scripts/scoring.R")
   source("scripts/matcher.R")
   source("scripts/utils_freq.R")
+  
+  # DBはここで1回だけ読み込む
+  db <- read_db_profiles("data/database_profile.csv", locus_order, homo_to_any = FALSE)
+  db_count <- length(db)
+  
+  output$db_count <- renderText({
+    paste("Database Samples : N =", db_count)
+  })
   
   query_profile_reactive <- reactiveVal(NULL)
   match_result_reactive <- reactiveVal(NULL)
@@ -204,7 +209,6 @@ server <- function(input, output, session) {
     profile_df <- query_profile_reactive()
     profile <- split(profile_df[, c("Allele1", "Allele2")], profile_df$Locus)
     
-    db <- read_db_profiles("data/database_profile.csv", locus_order, homo_to_any = FALSE)
     result <- run_match(profile, db)
     
     score_df <- result$score_df
@@ -248,6 +252,7 @@ server <- function(input, output, session) {
     if (is.null(total)) return("")
     paste("Total Frequency:", format(total, scientific = TRUE, digits = 2))
   })
+  
   output$download_result <- downloadHandler(
     filename = function() {
       timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
