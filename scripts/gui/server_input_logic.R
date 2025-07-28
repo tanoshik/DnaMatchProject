@@ -15,7 +15,7 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     if (!all(required_cols %in% names(df))) {
       showModal(modalDialog(
         title = "Invalid CSV format",
-        "CSV file must contain columns: Locus, Allele1, Allele2",
+        "CSV file must contain columns: locus, allele1, allele2",
         easyClose = TRUE
       ))
       return()
@@ -27,35 +27,34 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     }
     
     df <- df[, c("locus", "allele1", "allele2")]
-    colnames(df) <- c("Locus", "Allele1", "Allele2")
+
+    df$allele1[is.na(df$allele1) | df$allele1 == ""] <- "any"
+    df$allele2[is.na(df$allele2) | df$allele2 == ""] <- "any"
     
-    df$Allele1[is.na(df$Allele1) | df$Allele1 == ""] <- "any"
-    df$Allele2[is.na(df$Allele2) | df$Allele2 == ""] <- "any"
-    
-    df <- df[df$Locus %in% visible_loci, ]
-    missing_loci <- setdiff(visible_loci, df$Locus)
+    df <- df[df$locus %in% visible_loci, ]
+    missing_loci <- setdiff(visible_loci, df$locus)
     if (length(missing_loci) > 0) {
       df <- rbind(df, data.frame(
-        Locus = missing_loci,
-        Allele1 = "any",
-        Allele2 = "any"
+        locus = missing_loci,
+        allele1 = "any",
+        allele2 = "any",
+        stringsAsFactors = FALSE
       ))
     }
+    df$locus <- factor(df$locus, levels = visible_loci)
+    df <- df[order(df$locus), ]
     
-    df$Locus <- factor(df$Locus, levels = visible_loci)
-    df <- df[order(df$Locus), ]
-    
-    for (locus in df$Locus) {
-      a1 <- df[df$Locus == locus, "Allele1"]
-      a2 <- df[df$Locus == locus, "Allele2"]
+    for (locus in df$locus) {
+      a1 <- df[df$locus == locus, "allele1"]
+      a2 <- df[df$locus == locus, "allele2"]
       valid_choices <- get_allele_choices(locus, freq_table)
       
       if (!(a1 %in% valid_choices)) {
-        showNotification(paste("Allele", a1, "is not valid for", locus, "- set to blank."))
+        showNotification(paste("allele", a1, "is not valid for", locus, "- set to blank."))
         a1 <- ""
       }
       if (!(a2 %in% valid_choices)) {
-        showNotification(paste("Allele", a2, "is not valid for", locus, "- set to blank."))
+        showNotification(paste("allele", a2, "is not valid for", locus, "- set to blank."))
         a2 <- ""
       }
       
@@ -68,12 +67,12 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     updateTabsetPanel(session, "main_tabs", selected = "Confirm")
     
     query_df <- data.frame(
-      Locus = visible_loci,
-      Allele1 = sapply(visible_loci, function(locus) {
+      locus = visible_loci,
+      allele1 = sapply(visible_loci, function(locus) {
         val <- input[[paste0("input_", locus, "_1")]]
         if (is.null(val) || val == "") "any" else val
       }),
-      Allele2 = sapply(visible_loci, function(locus) {
+      allele2 = sapply(visible_loci, function(locus) {
         val <- input[[paste0("input_", locus, "_2")]]
         if (is.null(val) || val == "") "any" else val
       }),
@@ -83,8 +82,15 @@ register_input_logic <- function(input, output, session, visible_loci, freq_tabl
     prepared <- prepare_profile_df(query_df, homo_to_any = input$homo_to_any)
     query_profile_reactive(prepared)
     
-    freq_df <- calc_freq_loci_df(prepared, freq_table)
-    total_freq <- calc_total_freq(prepared, freq_table)
+    # 🔧 calc_freq_loci_df 用にキャピタル列名に変換（安全版）
+    freq_input <- prepared
+    colnames(freq_input) <- gsub("^allele1$", "Allele1", colnames(freq_input))
+    colnames(freq_input) <- gsub("^allele2$", "Allele2", colnames(freq_input))
+    colnames(freq_input) <- gsub("^locus$", "Locus", colnames(freq_input))
+    
+    freq_df <- calc_freq_loci_df(freq_input, freq_table)
+    total_freq <- calc_total_freq(freq_input, freq_table)
+    
     freq_table_df_reactive(freq_df)
     total_freq_reactive(total_freq)
   })
