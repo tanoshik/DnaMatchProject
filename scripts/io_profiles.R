@@ -16,7 +16,7 @@ read_query_profile <- function(file_path, locus_order, homo_to_any = FALSE) {
     }
     profile[[locus]] <- alleles
   }
-  profile <- prepare_profile(profile, homo_to_any)
+  profile <- prepare_profile(profile, homo_to_any = homo_to_any, locus_order = locus_order)
   names(profile) <- locus_order
   return(profile)
 }
@@ -40,7 +40,7 @@ read_db_profiles <- function(file_path, locus_order, homo_to_any = FALSE) {
       raw_profile[[locus]] <- c(NA, NA)
     }
     raw_profile <- raw_profile[locus_order]
-    prepare_profile(raw_profile, homo_to_any)
+    prepare_profile(raw_profile, homo_to_any = homo_to_any, locus_order = locus_order)
   })
   names(profiles) <- sample_ids
   profiles

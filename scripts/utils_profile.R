@@ -1,14 +1,36 @@
-# 欠損補完とホモ型変換処理（リスト形式：内部処理用）
-prepare_profile <- function(profile, homo_to_any = FALSE) {
-  lapply(profile, function(alleles) {
-    alleles <- as.character(alleles)
-    if (length(alleles) != 2) alleles <- c("any", "any")
-    alleles[is.na(alleles) | alleles == ""] <- "any"
-    if (homo_to_any && alleles[1] == alleles[2] && alleles[1] != "any") {
-      alleles[2] <- "any"
+prepare_profile <- function(profile, homo_to_any = FALSE, locus_order = NULL) {
+  df <- data.frame(
+    Locus = names(profile),
+    Allele1 = sapply(profile, function(x) if (length(x) >= 1) x[1] else ""),
+    Allele2 = sapply(profile, function(x) if (length(x) >= 2) x[2] else ""),
+    stringsAsFactors = FALSE
+  )
+  
+  df_prep <- prepare_profile_df(df, homo_to_any)
+  
+  # ローカス順補完
+  if (!is.null(locus_order)) {
+    missing_loci <- setdiff(locus_order, df_prep$Locus)
+    if (length(missing_loci) > 0) {
+      df_missing <- data.frame(
+        Locus = missing_loci,
+        Allele1 = "any",
+        Allele2 = "any",
+        stringsAsFactors = FALSE
+      )
+      df_prep <- rbind(df_prep, df_missing)
     }
-    alleles
-  })
+    df_prep$Locus <- factor(df_prep$Locus, levels = locus_order)
+    df_prep <- df_prep[order(df_prep$Locus), ]
+  }
+  
+  result <- setNames(
+    lapply(seq_len(nrow(df_prep)), function(i) {
+      c(df_prep$Allele1[i], df_prep$Allele2[i])
+    }),
+    df_prep$Locus
+  )
+  return(result)
 }
 
 # data.frame版 prepare_profile（GUI用）
