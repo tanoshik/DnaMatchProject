@@ -32,10 +32,10 @@ run_match <- function(query_profile, db_profiles, top_n = 10) {
     data.frame(
       SampleID = rep(sid, length(loci)),
       Locus = loci,
-      Query_Allele1 = q1,
-      Query_Allele2 = q2,
-      DB_Allele1 = r1,
-      DB_Allele2 = r2,
+      Query_allele1 = q1,
+      Query_allele2 = q2,
+      DB_allele1 = r1,
+      DB_allele2 = r2,
       Score = as.vector(ss),
       stringsAsFactors = FALSE
     )

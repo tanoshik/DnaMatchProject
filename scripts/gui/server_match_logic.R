@@ -7,7 +7,7 @@ register_match_logic <- function(input, output, session, db, visible_loci,
   
   observeEvent(input$run_match, {
     profile_df <- query_profile_reactive()
-    profile <- split(profile_df[, c("Allele1", "Allele2")], profile_df$Locus)
+    profile <- split(profile_df[, c("allele1", "allele2")], profile_df$Locus)
     
     result <- run_match(profile, db)
     
@@ -76,7 +76,7 @@ register_match_logic <- function(input, output, session, db, visible_loci,
       profile_df <- query_profile_reactive()
       if (is.null(profile_df)) return(NULL)
       
-      query_profile <- split(profile_df[, c("Allele1", "Allele2")], profile_df$Locus)
+      query_profile <- split(profile_df[, c("allele1", "allele2")], profile_df$Locus)
       
       selected_ids <- result$SampleID
       log_list <- lapply(selected_ids, function(sid) {
@@ -85,8 +85,8 @@ register_match_logic <- function(input, output, session, db, visible_loci,
         mlog_trimmed <- data.frame(
           SampleID = sid,
           Locus = mlog$Locus,
-          DB_Allele1 = mlog$record_allele1,
-          DB_Allele2 = mlog$record_allele2,
+          DB_allele1 = mlog$record_allele1,
+          DB_allele2 = mlog$record_allele2,
           stringsAsFactors = FALSE
         )
         return(mlog_trimmed)
