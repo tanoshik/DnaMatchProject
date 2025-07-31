@@ -2,13 +2,13 @@ register_match_logic <- function(input, output, session, db, visible_loci,
                                  query_profile_reactive, match_result_reactive, db_count) {
   
   output$db_count <- renderText({
-    paste("Database Samples : N =", db_count)
+    paste("Database Samples : N =", db_count())
   })
   
   observeEvent(input$run_match, {
     profile_df <- query_profile_reactive()
     profile <- split(profile_df[, c("allele1", "allele2")], profile_df$locus)    
-    result <- run_match(profile, db)
+    result <- run_match(profile, db())
     
     score_df <- result$score_df
     score_df$Score <- as.integer(score_df$Score)
@@ -79,7 +79,7 @@ register_match_logic <- function(input, output, session, db, visible_loci,
       
       selected_ids <- result$SampleID
       log_list <- lapply(selected_ids, function(sid) {
-        db_profile <- db[[sid]]
+        db_profile <- db()[[sid]]
         mlog <- score_profile(query_profile, db_profile)$log
         mlog_trimmed <- data.frame(
           SampleID = sid,
