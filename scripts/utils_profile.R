@@ -131,3 +131,10 @@ prepare_database <- function(db_file = "data/database_profile.csv",
   
   return(list(raw = db_profiles_raw, prepared = db_profiles))
 }
+
+prepare_database_df <- function(df_raw, locus_order, homo_to_any = FALSE) {
+  df_raw <- df_raw[df_raw$Locus %in% locus_order, ]
+  db_profiles_raw <- convert_db_to_list(df_raw, locus_order)
+  db_profiles <- lapply(db_profiles_raw, prepare_profile, homo_to_any = homo_to_any)
+  return(list(raw = db_profiles_raw, prepared = db_profiles))
+}
